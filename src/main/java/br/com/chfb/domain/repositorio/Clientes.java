@@ -3,11 +3,11 @@ package br.com.chfb.domain.repositorio;
 import br.com.chfb.domain.entity.Cliente;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import javax.persistence.EntityManager;
+import javax.persistence.TypedQuery;
 import java.util.List;
 
 @Repository
@@ -21,45 +21,66 @@ public class Clientes {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private EntityManager entityManager;
+
+//    private static RowMapper<Cliente> getClienteRowMapper() {
+//        return new RowMapper<Cliente>() {
+//            @Override
+//            public Cliente mapRow(ResultSet resultSet, int i) throws SQLException {
+//                Integer id = resultSet.getInt("id");
+//                String nome = resultSet.getString("nome");
+//                return new Cliente(id, nome);
+//            }
+//        };
+//    }
+
+    @Transactional
     public Cliente salvar(Cliente cliente) {
-        this.jdbcTemplate.update(INSERT, cliente.getNome());
+        this.entityManager.persist(cliente);
+//        this.jdbcTemplate.update(INSERT, cliente.getNome());
+//        return cliente;
         return cliente;
     }
 
+    @Transactional
     public Cliente atualizar(Cliente cliente) {
-        this.jdbcTemplate.update(UPDATE, cliente.getNome(),
-                cliente.getId());
+        this.entityManager.merge(cliente);
+//        this.jdbcTemplate.update(UPDATE, cliente.getNome(),
+//                cliente.getId());
         return cliente;
     }
 
+    @Transactional
     public void deletar(Cliente cliente) {
-        deletar(cliente.getId());
+        if (!this.entityManager.contains(cliente)) {
+            cliente = entityManager.merge(cliente);
+        }
+        this.entityManager.remove(cliente);
     }
 
+    @Transactional
     public void deletar(Integer id) {
-        this.jdbcTemplate.update(DELETE, id);
+        Cliente cliente = this.entityManager.find(Cliente.class, id);
+        this.deletar(cliente);
     }
 
+    @Transactional(readOnly = true)
     public List<Cliente> buscarPorNome(String nome) {
-        return this.jdbcTemplate.query(
-                SELECT_ALL.replace(";", "").concat(" WHERE NOME LIKE ?;"),
-                new Object[]{"%".concat(nome).concat("%") },
-                getClienteRowMapper()
-        );
+//        return this.jdbcTemplate.query(
+//                SELECT_ALL.replace(";", "").concat(" WHERE NOME LIKE ?;"),
+//                new Object[]{"%".concat(nome).concat("%")},
+//                getClienteRowMapper()
+//        );
+        String jpql = " select c from Cliente c where c.nome like :nome ";
+        TypedQuery<Cliente> query = entityManager.createQuery(jpql, Cliente.class);
+        query.setParameter("nome", "%".concat(nome).concat("%"));
+        return query.getResultList();
     }
 
+    @Transactional
     public List<Cliente> obterTodos() {
-        return this.jdbcTemplate.query(SELECT_ALL, getClienteRowMapper());
-    }
-
-    private static RowMapper<Cliente> getClienteRowMapper() {
-        return new RowMapper<Cliente>() {
-            @Override
-            public Cliente mapRow(ResultSet resultSet, int i) throws SQLException {
-                Integer id = resultSet.getInt("id");
-                String nome = resultSet.getString("nome");
-                return new Cliente(id, nome);
-            }
-        };
+//        return this.jdbcTemplate.query(SELECT_ALL, getClienteRowMapper());
+        return this.entityManager.createQuery("from Cliente", Cliente.class).getResultList();
     }
 }
